@@ -1,0 +1,7 @@
+.hover-show {
+  transition: opacity 0.2s;
+}
+
+.card:hover .hover-show {
+  opacity: 1 !important;
+}

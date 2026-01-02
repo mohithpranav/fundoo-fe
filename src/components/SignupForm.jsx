@@ -1,22 +1,59 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { signup } from "../services/authService";
 
 const SignupForm = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
     username: "",
+    email: "",
     password: "",
     confirm: "",
   });
 
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData);
+  const handleSubmit = async () => {
+    if (
+      !formData.firstName ||
+      !formData.lastName ||
+      !formData.username ||
+      !formData.email ||
+      !formData.password ||
+      !formData.confirm
+    ) {
+      setError("Please fill in all fields");
+      return;
+    }
+
+    if (formData.password !== formData.confirm) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      await signup({
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
+        name: `${formData.firstName} ${formData.lastName}`.trim(),
+      });
+      navigate("/login");
+    } catch (err) {
+      setError(err.message || "Signup failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -42,10 +79,27 @@ const SignupForm = () => {
         </div>
       </div>
 
+      {error && (
+        <div className="alert alert-danger" role="alert">
+          {error}
+        </div>
+      )}
+
       <div className="mb-3">
         <input
           className="form-control form-control-lg"
-          placeholder="username*"
+          placeholder="Email*"
+          name="email"
+          type="email"
+          value={formData.email}
+          onChange={handleChange}
+        />
+      </div>
+
+      <div className="mb-3">
+        <input
+          className="form-control form-control-lg"
+          placeholder="Username*"
           name="username"
           value={formData.username}
           onChange={handleChange}
@@ -90,8 +144,12 @@ const SignupForm = () => {
 
       <div className="d-flex justify-content-between">
         <Link to="/login">Sign in instead</Link>
-        <button className="btn btn-primary" onClick={handleSubmit}>
-          Next
+        <button
+          className="btn btn-primary"
+          onClick={handleSubmit}
+          disabled={loading}
+        >
+          {loading ? "Creating..." : "Next"}
         </button>
       </div>
     </>
