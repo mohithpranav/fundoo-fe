@@ -141,3 +141,21 @@ export const getArchivedNotes = async () => {
 
   return await response.json();
 };
+
+export const searchNotes = async (searchQuery) => {
+  const response = await fetch(
+    `${API_BASE_URL}/notes/search?q=${encodeURIComponent(searchQuery)}`,
+    {
+      method: "GET",
+      headers: getAuthHeaders(),
+    }
+  );
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || "Failed to search notes");
+  }
+
+  const result = await response.json();
+  return result.notes || [];
+};

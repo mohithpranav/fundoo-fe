@@ -3,8 +3,24 @@ import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import NoteInput from "../components/NoteInput";
 import NoteCard from "../components/NoteCard";
+import SortableNoteCard from "../components/SortableNoteCard";
 import EmptyState from "../components/EmptyState";
 import Footer from "../components/Footer";
+import LabelManager from "../components/LabelManager";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from "@dnd-kit/sortable";
 import {
   getNotes as fetchNotes,
   getTrashedNotes,
@@ -15,6 +31,7 @@ import {
   trashNote,
   archiveNote,
   addCollaborator,
+  searchNotes,
 } from "../services/notesService";
 
 const Dashboard = () => {
@@ -22,10 +39,34 @@ const Dashboard = () => {
   const [notes, setNotes] = useState([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [showLabelManager, setShowLabelManager] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event) => {
+    const { active, over } = event;
+
+    if (active.id !== over.id) {
+      setNotes((items) => {
+        const oldIndex = items.findIndex((item) => item._id === active.id);
+        const newIndex = items.findIndex((item) => item._id === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
 
   useEffect(() => {
-    loadNotes();
-  }, [activeItem]);
+    if (!searchQuery.trim()) {
+      loadNotes();
+    }
+  }, [activeItem, searchQuery]);
 
   const loadNotes = async () => {
     try {
@@ -46,6 +87,27 @@ const Dashboard = () => {
     }
   };
 
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setIsSearching(false);
+      loadNotes();
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      setLoading(true);
+      const results = await searchNotes(query);
+      setNotes(Array.isArray(results) ? results : []);
+    } catch (error) {
+      console.error("Failed to search notes:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddNote = async (noteData) => {
     try {
       const response = await createNote(noteData);
@@ -58,11 +120,9 @@ const Dashboard = () => {
 
   const handleUpdateNote = async (noteId, noteData) => {
     try {
-      await updateNote(noteId, noteData);
+      const response = await updateNote(noteId, noteData);
       setNotes(
-        notes.map((note) =>
-          note._id === noteId ? { ...note, ...noteData } : note
-        )
+        notes.map((note) => (note._id === noteId ? response.note : note))
       );
     } catch (error) {
       console.error("Failed to update note:", error);
@@ -87,7 +147,9 @@ const Dashboard = () => {
         // If viewing trash, update the note's trashed status
         setNotes(
           notes.map((note) =>
-            note._id === noteId ? { ...note, isTrashed: response.note.isTrashed } : note
+            note._id === noteId
+              ? { ...note, isTrashed: response.note.isTrashed }
+              : note
           )
         );
       } else {
@@ -116,7 +178,9 @@ const Dashboard = () => {
       // Update the note's archived status in the list
       setNotes(
         notes.map((note) =>
-          note._id === noteId ? { ...note, isArchived: response.note.isArchived } : note
+          note._id === noteId
+            ? { ...note, isArchived: response.note.isArchived }
+            : note
         )
       );
     } catch (error) {
@@ -130,15 +194,28 @@ const Dashboard = () => {
       <Header
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         isSidebarOpen={isSidebarOpen}
+        onSearch={handleSearch}
       />
       <div className="d-flex">
         <Sidebar
           activeItem={activeItem}
-          setActiveItem={setActiveItem}
+          setActiveItem={(item) => {
+            setActiveItem(item);
+            setSearchQuery("");
+            setIsSearching(false);
+          }}
           isOpen={isSidebarOpen}
+          onEditLabels={() => setShowLabelManager(true)}
         />
         <main className="flex-grow-1 p-4">
-          {activeItem === "notes" && <NoteInput onAddNote={handleAddNote} />}
+          {activeItem === "notes" && !isSearching && (
+            <NoteInput onAddNote={handleAddNote} />
+          )}
+          {isSearching && searchQuery && (
+            <div className="mb-3 text-muted">
+              Search results for "{searchQuery}"
+            </div>
+          )}
           {loading ? (
             <div className="text-center p-5">
               <div className="spinner-border" role="status">
@@ -146,27 +223,49 @@ const Dashboard = () => {
               </div>
             </div>
           ) : notes.length === 0 ? (
-            <EmptyState activeItem={activeItem} />
+            isSearching ? (
+              <div className="text-center p-5">
+                <p className="text-muted">
+                  No notes found matching "{searchQuery}"
+                </p>
+              </div>
+            ) : (
+              <EmptyState activeItem={activeItem} />
+            )
           ) : (
-            <div className="row g-3">
-              {notes.map((n) => (
-                <div className="col-md-3" key={n._id}>
-                  <NoteCard
-                    note={n}
-                    onDelete={handleDeleteNote}
-                    onUpdate={handleUpdateNote}
-                    onTrash={handleTrashNote}
-                    onArchive={handleArchiveNote}
-                    onAddCollaborator={handleAddCollaborator}
-                    isTrashView={activeItem === "trash"}
-                  />
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={notes.map((n) => n._id)}
+                strategy={rectSortingStrategy}
+              >
+                <div className="row g-3">
+                  {notes.map((n) => (
+                    <div className="col-md-3" key={n._id}>
+                      <SortableNoteCard
+                        note={n}
+                        onDelete={handleDeleteNote}
+                        onUpdate={handleUpdateNote}
+                        onTrash={handleTrashNote}
+                        onArchive={handleArchiveNote}
+                        onAddCollaborator={handleAddCollaborator}
+                        isTrashView={activeItem === "trash"}
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </SortableContext>
+            </DndContext>
           )}
         </main>
       </div>
       <Footer />
+      {showLabelManager && (
+        <LabelManager onClose={() => setShowLabelManager(false)} />
+      )}
     </>
   );
 };
