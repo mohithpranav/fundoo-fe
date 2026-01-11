@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { getAllLabels } from "../services/labelService";
 
-const NoteInput = ({ onAddNote }) => {
+const NoteInput = ({ onAddNote, currentLabelId = null, labels = [] }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -12,6 +12,19 @@ const NoteInput = ({ onAddNote }) => {
   useEffect(() => {
     loadLabels();
   }, []);
+
+  useEffect(() => {
+    // Auto-select the current label when viewing a label
+    if (currentLabelId && labels.length > 0 && !isExpanded) {
+      const currentLabel = labels.find((l) => l._id === currentLabelId);
+      if (
+        currentLabel &&
+        !selectedLabels.some((l) => l._id === currentLabelId)
+      ) {
+        setSelectedLabels([currentLabel]);
+      }
+    }
+  }, [currentLabelId, labels, isExpanded]);
 
   const loadLabels = async () => {
     try {
@@ -29,7 +42,10 @@ const NoteInput = ({ onAddNote }) => {
     }
     setTitle("");
     setContent("");
-    setSelectedLabels([]);
+    // Don't clear selected labels if on a label view - will be reset by useEffect
+    if (!currentLabelId) {
+      setSelectedLabels([]);
+    }
     setIsExpanded(false);
   };
 

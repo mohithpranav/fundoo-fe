@@ -7,6 +7,7 @@ import SortableNoteCard from "../components/SortableNoteCard";
 import EmptyState from "../components/EmptyState";
 import Footer from "../components/Footer";
 import LabelManager from "../components/LabelManager";
+import { getAllLabels, getNotesByLabel } from "../services/labelService";
 import {
   DndContext,
   closestCenter,
@@ -42,6 +43,7 @@ const Dashboard = () => {
   const [showLabelManager, setShowLabelManager] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [labels, setLabels] = useState([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -63,10 +65,23 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    loadLabels();
+  }, []);
+
+  useEffect(() => {
     if (!searchQuery.trim()) {
       loadNotes();
     }
   }, [activeItem, searchQuery]);
+
+  const loadLabels = async () => {
+    try {
+      const response = await getAllLabels();
+      setLabels(response.labels || []);
+    } catch (error) {
+      console.error("Failed to load labels:", error);
+    }
+  };
 
   const loadNotes = async () => {
     try {
@@ -76,6 +91,9 @@ const Dashboard = () => {
         data = await getTrashedNotes();
       } else if (activeItem === "archive") {
         data = await getArchivedNotes();
+      } else if (activeItem.startsWith("label-")) {
+        const labelId = activeItem.replace("label-", "");
+        data = await getNotesByLabel(labelId);
       } else {
         data = await fetchNotes();
       }
@@ -144,14 +162,8 @@ const Dashboard = () => {
     try {
       const response = await trashNote(noteId);
       if (activeItem === "trash") {
-        // If viewing trash, update the note's trashed status
-        setNotes(
-          notes.map((note) =>
-            note._id === noteId
-              ? { ...note, isTrashed: response.note.isTrashed }
-              : note
-          )
-        );
+        // If viewing trash and restoring, remove from trash view
+        setNotes(notes.filter((note) => note._id !== noteId));
       } else {
         // If viewing notes, remove from view when trashed
         setNotes(notes.filter((note) => note._id !== noteId));
@@ -205,12 +217,22 @@ const Dashboard = () => {
             setIsSearching(false);
           }}
           isOpen={isSidebarOpen}
+          labels={labels}
           onEditLabels={() => setShowLabelManager(true)}
         />
         <main className="flex-grow-1 p-4">
-          {activeItem === "notes" && !isSearching && (
-            <NoteInput onAddNote={handleAddNote} />
-          )}
+          {(activeItem === "notes" || activeItem.startsWith("label-")) &&
+            !isSearching && (
+              <NoteInput
+                onAddNote={handleAddNote}
+                currentLabelId={
+                  activeItem.startsWith("label-")
+                    ? activeItem.replace("label-", "")
+                    : null
+                }
+                labels={labels}
+              />
+            )}
           {isSearching && searchQuery && (
             <div className="mb-3 text-muted">
               Search results for "{searchQuery}"
@@ -242,9 +264,17 @@ const Dashboard = () => {
                 items={notes.map((n) => n._id)}
                 strategy={rectSortingStrategy}
               >
-                <div className="row g-3">
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(240px, 1fr))",
+                    gap: "16px",
+                    gridAutoRows: "min-content",
+                  }}
+                >
                   {notes.map((n) => (
-                    <div className="col-md-3" key={n._id}>
+                    <div key={n._id}>
                       <SortableNoteCard
                         note={n}
                         onDelete={handleDeleteNote}
@@ -264,7 +294,12 @@ const Dashboard = () => {
       </div>
       <Footer />
       {showLabelManager && (
-        <LabelManager onClose={() => setShowLabelManager(false)} />
+        <LabelManager
+          onClose={() => {
+            setShowLabelManager(false);
+            loadLabels();
+          }}
+        />
       )}
     </>
   );

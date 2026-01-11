@@ -268,7 +268,12 @@ const NoteCard = ({
   return (
     <div
       className="card shadow-sm h-100"
-      style={{ borderRadius: "8px", cursor: "pointer", position: "relative" }}
+      style={{
+        borderRadius: "8px",
+        cursor: "pointer",
+        position: "relative",
+        overflow: "visible",
+      }}
       onClick={() => setIsEditing(true)}
     >
       {/* Drag handle in the top-right corner */}
@@ -296,19 +301,36 @@ const NoteCard = ({
       )}
       <div
         className="card-body p-3"
-        style={{ paddingRight: dragHandleProps ? "32px" : "12px" }}
+        style={{
+          paddingRight: dragHandleProps ? "32px" : "12px",
+          overflow: "hidden",
+        }}
       >
         {note.title && (
           <h6
             className="mb-2"
-            style={{ fontSize: "16px", fontWeight: "500", color: "#202124" }}
+            style={{
+              fontSize: "16px",
+              fontWeight: "500",
+              color: "#202124",
+              wordWrap: "break-word",
+              overflowWrap: "break-word",
+              wordBreak: "break-word",
+            }}
           >
             {note.title}
           </h6>
         )}
         <p
           className="mb-0"
-          style={{ fontSize: "14px", color: "#202124", whiteSpace: "pre-wrap" }}
+          style={{
+            fontSize: "14px",
+            color: "#202124",
+            whiteSpace: "pre-wrap",
+            wordWrap: "break-word",
+            overflowWrap: "break-word",
+            wordBreak: "break-word",
+          }}
         >
           {note.content}
         </p>

@@ -48,7 +48,7 @@ const Header = ({ toggleSidebar, isSidebarOpen, onSearch }) => {
           </div>
         </div>
 
-        <div className="flex-grow-1 mx-4 ">
+        <div style={{ width: "50%", maxWidth: "720px", marginLeft: "8px" }}>
           <form onSubmit={handleSearchSubmit}>
             <input
               className="form-control border-0"
@@ -60,8 +60,8 @@ const Header = ({ toggleSidebar, isSidebarOpen, onSearch }) => {
           </form>
         </div>
 
-        <div className="d-flex align-items-center gap-2">
-          <button className="btn btn-link">⚙</button>
+        <div className="d-flex align-items-center gap-2 ms-auto">
+          {/* <button className="btn btn-link">⚙</button> */}
           <div
             className="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
             style={{ width: 32, height: 32 }}
