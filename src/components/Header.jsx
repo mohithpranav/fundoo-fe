@@ -42,7 +42,7 @@ const Header = ({ toggleSidebar, isSidebarOpen, onSearch }) => {
                 className="ms-2"
                 style={{ fontSize: "22px", color: "#5f6368" }}
               >
-                Keep
+                Keep Notes
               </span>
             )}
           </div>
